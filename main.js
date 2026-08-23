@@ -5,13 +5,14 @@
   "use strict";
 
   /* ---------------------------------------------------------
-     EDITABLE CONTENT DATA
-     Replace/extend these arrays with real items whenever you
-     have real projects, videos, or posts to show. Each entry
-     with a `href` renders as a link; leave `href` out (or set
-     to "#") to render as a plain placeholder card.
+     FALLBACK CONTENT
+     Used only if the content API is unreachable or not yet
+     set up. The site always renders something — visitors never
+     see a loading spinner, an error message, or any sign that
+     a backend exists at all. Safe to edit by hand for now; once
+     a backend is live, this data is only ever a safety net.
   --------------------------------------------------------- */
-  const CONTENT = {
+  const FALLBACK_CONTENT = {
     webdev: [
       {
         tag: "project",
@@ -92,18 +93,58 @@
   };
 
   /* ---------------------------------------------------------
+     Escape text before it ever reaches innerHTML. Content may
+     eventually come from a backend the visitor doesn't see —
+     it must never be trusted to contain safe markup.
+  --------------------------------------------------------- */
+  function escapeHTML(value) {
+    const div = document.createElement("div");
+    div.textContent = String(value == null ? "" : value);
+    return div.innerHTML;
+  }
+
+  /* ---------------------------------------------------------
+     Skeleton placeholders — shown the instant the page loads,
+     swapped out once content is ready. No spinner, no loading
+     text, nothing that reads as "waiting on a server."
+  --------------------------------------------------------- */
+  function renderSkeletons(gridId, count) {
+    const grid = document.getElementById(gridId);
+    if (!grid) return;
+    grid.setAttribute("aria-busy", "true");
+    grid.innerHTML = Array.from({ length: count })
+      .map(
+        () => `
+          <div class="card card--skeleton" aria-hidden="true">
+            <div class="skeleton-line skeleton-line--tag"></div>
+            <div class="skeleton-line skeleton-line--title"></div>
+            <div class="skeleton-line skeleton-line--body"></div>
+            <div class="skeleton-line skeleton-line--body short"></div>
+          </div>
+        `
+      )
+      .join("");
+  }
+
+  /* ---------------------------------------------------------
      Render content cards
   --------------------------------------------------------- */
   function renderGrid(gridId, items) {
     const grid = document.getElementById(gridId);
     if (!grid) return;
+    grid.removeAttribute("aria-busy");
+
+    if (!Array.isArray(items) || items.length === 0) {
+      grid.innerHTML = "";
+      return;
+    }
 
     grid.innerHTML = items
       .map((item) => {
         const isLink = Boolean(item.href);
         const tagName = isLink ? "a" : "div";
         const linkAttrs = isLink
-          ? `href="${item.href}" target="_blank" rel="noopener noreferrer"`
+          ? `href="${escapeHTML(item.href)}" target="_blank" rel="noopener noreferrer"`
           : "";
         const linkMarkup = isLink
           ? `<div class="card__foot"><span class="card__link">watch <svg width="12" height="12" viewBox="0 0 16 16" fill="none"><path d="M4 12 12 4M6 4h6v6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span></div>`
@@ -112,11 +153,11 @@
         return `
           <${tagName} class="card${isLink ? "" : " card--placeholder"}" ${linkAttrs}>
             <div class="card__top">
-              <span class="card__tag">${item.tag}</span>
-              <span class="card__status">${item.status}</span>
+              <span class="card__tag">${escapeHTML(item.tag)}</span>
+              <span class="card__status">${escapeHTML(item.status)}</span>
             </div>
-            <h3 class="card__title">${item.title}</h3>
-            <p class="card__desc">${item.desc}</p>
+            <h3 class="card__title">${escapeHTML(item.title)}</h3>
+            <p class="card__desc">${escapeHTML(item.desc)}</p>
             ${linkMarkup}
           </${tagName}>
         `;
@@ -124,10 +165,58 @@
       .join("");
   }
 
-  renderGrid("webdevGrid", CONTENT.webdev);
-  renderGrid("techGrid", CONTENT.tech);
-  renderGrid("animeGrid", CONTENT.anime);
-  renderGrid("otherGrid", CONTENT.other);
+  /* ---------------------------------------------------------
+     Load content — backend first, fallback second, always
+     silent. The visitor never sees which one served the page:
+     no error banners, no console noise that names an endpoint,
+     no visible difference in markup or timing between the two.
+  --------------------------------------------------------- */
+  const GRIDS = [
+    { id: "webdevGrid", category: "webdev" },
+    { id: "techGrid", category: "tech" },
+    { id: "animeGrid", category: "anime" },
+    { id: "otherGrid", category: "other" },
+  ];
+
+  GRIDS.forEach((grid) => renderSkeletons(grid.id, 3));
+
+  function renderFallback() {
+    GRIDS.forEach((grid) => renderGrid(grid.id, FALLBACK_CONTENT[grid.category]));
+  }
+
+  async function loadContent() {
+    // No backend configured yet: stay on fallback content, no network
+    // call attempted, nothing to fail or log.
+    if (!window.CONTENT_API_URL) {
+      renderFallback();
+      return;
+    }
+
+    try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 5000);
+
+      const response = await fetch(window.CONTENT_API_URL, {
+        signal: controller.signal,
+        headers: { Accept: "application/json" },
+      });
+      clearTimeout(timeout);
+
+      if (!response.ok) throw new Error("content unavailable");
+      const data = await response.json();
+
+      GRIDS.forEach((grid) => {
+        const items = Array.isArray(data?.[grid.category]) ? data[grid.category] : null;
+        renderGrid(grid.id, items && items.length ? items : FALLBACK_CONTENT[grid.category]);
+      });
+    } catch (err) {
+      // Backend missing, slow, or misconfigured — fall back without
+      // surfacing anything to the page or the console.
+      renderFallback();
+    }
+  }
+
+  loadContent();
 
   /* ---------------------------------------------------------
      Mobile nav toggle
