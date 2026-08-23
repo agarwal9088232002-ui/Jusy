@@ -439,6 +439,24 @@ a.card{ cursor:pointer; }
   .skeleton-line{ animation: none; }
 }
 
+/* Empty state — shown when a category has no items yet. Spans the
+   full grid width instead of sitting cramped in one column, and
+   reads as "more is coming" rather than a broken or unfinished page. */
+.card--empty{
+  grid-column: 1 / -1;
+  border-style: dashed;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 40px 22px;
+}
+.card--empty__text{
+  color: var(--muted-2);
+  font-family: var(--font-mono);
+  font-size: 13px;
+  letter-spacing: 0.01em;
+}
+
 /* =========================================================
    Connect
    ========================================================= */
