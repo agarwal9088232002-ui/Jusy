@@ -12,84 +12,34 @@
      a backend exists at all. Safe to edit by hand for now; once
      a backend is live, this data is only ever a safety net.
   --------------------------------------------------------- */
+  /* ---------------------------------------------------------
+     FALLBACK CONTENT
+     Real items only. This site is public — nothing here should
+     read as an instruction to the site owner or a placeholder
+     screenshot; an empty category renders a plain "nothing yet"
+     state instead (see EMPTY_MESSAGES / renderGrid below).
+     Add real entries as work goes up.
+  --------------------------------------------------------- */
   const FALLBACK_CONTENT = {
-    webdev: [
-      {
-        tag: "project",
-        status: "add your work",
-        title: "Your latest build",
-        desc: "Swap this card for a real project — title, one-line summary, and a link to the live site or repo.",
-      },
-      {
-        tag: "project",
-        status: "add your work",
-        title: "Another project",
-        desc: "This grid is built to hold as many cards as you need — duplicate the pattern in main.js.",
-      },
-      {
-        tag: "project",
-        status: "add your work",
-        title: "Client / freelance work",
-        desc: "Case studies, dashboards, landing pages — whatever you want visitors to see first.",
-      },
-    ],
-    tech: [
-      {
-        tag: "write-up",
-        status: "add your work",
-        title: "Your latest tech post",
-        desc: "A breakdown, a review, or notes on something you've been testing recently.",
-      },
-      {
-        tag: "write-up",
-        status: "add your work",
-        title: "Another tech piece",
-        desc: "Keep these short and specific — one idea per card reads better than a wall of text.",
-      },
-      {
-        tag: "write-up",
-        status: "add your work",
-        title: "Tool / setup notes",
-        desc: "Your desk setup, dev environment, or a stack you'd recommend.",
-      },
-    ],
+    webdev: [],
+    tech: [],
     anime: [
       {
-        tag: "edit",
+        tag: "channel",
         status: "on YouTube",
-        title: "Latest edit",
-        desc: "Link this card straight to the YouTube upload once it's live.",
-        href: "https://www.youtube.com/@jusy_washere",
-      },
-      {
-        tag: "edit",
-        status: "on YouTube",
-        title: "Fan favourite",
-        desc: "Pin whichever edit you want new visitors to see first.",
-        href: "https://www.youtube.com/@jusy_washere",
-      },
-      {
-        tag: "edit",
-        status: "on YouTube",
-        title: "More on the channel",
-        desc: "The full cut list lives on the channel — this is just a preview.",
+        title: "New edits go up here first",
+        desc: "The full catalog of edits lives on the channel — new uploads land there before anywhere else.",
         href: "https://www.youtube.com/@jusy_washere",
       },
     ],
-    other: [
-      {
-        tag: "misc",
-        status: "add your work",
-        title: "Whatever's on your mind",
-        desc: "Not tech, not an edit, not client work — still worth a card.",
-      },
-      {
-        tag: "misc",
-        status: "add your work",
-        title: "One-off drop",
-        desc: "Good for one-time posts that don't need their own category.",
-      },
-    ],
+    other: [],
+  };
+
+  const EMPTY_MESSAGES = {
+    webdev: "New projects are on the way.",
+    tech: "New write-ups are on the way.",
+    anime: "New edits are on the way.",
+    other: "New content is on the way.",
   };
 
   /* ---------------------------------------------------------
@@ -129,13 +79,17 @@
   /* ---------------------------------------------------------
      Render content cards
   --------------------------------------------------------- */
-  function renderGrid(gridId, items) {
+  function renderGrid(gridId, items, emptyMessage) {
     const grid = document.getElementById(gridId);
     if (!grid) return;
     grid.removeAttribute("aria-busy");
 
     if (!Array.isArray(items) || items.length === 0) {
-      grid.innerHTML = "";
+      grid.innerHTML = `
+        <div class="card card--empty">
+          <p class="card--empty__text">${escapeHTML(emptyMessage || "Nothing here yet.")}</p>
+        </div>
+      `;
       return;
     }
 
@@ -181,7 +135,9 @@
   GRIDS.forEach((grid) => renderSkeletons(grid.id, 3));
 
   function renderFallback() {
-    GRIDS.forEach((grid) => renderGrid(grid.id, FALLBACK_CONTENT[grid.category]));
+    GRIDS.forEach((grid) =>
+      renderGrid(grid.id, FALLBACK_CONTENT[grid.category], EMPTY_MESSAGES[grid.category])
+    );
   }
 
   async function loadContent() {
@@ -207,7 +163,8 @@
 
       GRIDS.forEach((grid) => {
         const items = Array.isArray(data?.[grid.category]) ? data[grid.category] : null;
-        renderGrid(grid.id, items && items.length ? items : FALLBACK_CONTENT[grid.category]);
+        const finalItems = items && items.length ? items : FALLBACK_CONTENT[grid.category];
+        renderGrid(grid.id, finalItems, EMPTY_MESSAGES[grid.category]);
       });
     } catch (err) {
       // Backend missing, slow, or misconfigured — fall back without
