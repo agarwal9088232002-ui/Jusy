@@ -251,6 +251,15 @@
   </div>
 </footer>
 
+<!--
+  Backend hookup (optional): once a content API exists, set its URL here.
+  Until this is set, the site renders entirely from its own local
+  fallback content — no network requests are made, nothing to fail,
+  nothing for a visitor to notice either way.
+-->
+<script>
+  window.CONTENT_API_URL = null; // e.g. "https://api.example.com/api/cards"
+</script>
 <script src="main.js"></script>
 </body>
 </html>
